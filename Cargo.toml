@@ -1,0 +1,21 @@
+[package]
+name = "wgrpcd"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tonic = { version = "0.11.0", features = ["transport", "tls", "prost"] }
+prost = "0.12.3"
+tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "fs"] }
+clap = { version = "4.5.4", features = ["derive"] }
+defguard_wireguard_rs = "0.4.2"
+anyhow = "1.0.81"
+wireguard-keys = { version = "0.1.1", features = ["base64"] }
+log = "0.4.21"
+base64 = "0.22.0"
+pretty_env_logger = "0.5.0"
+
+[build-dependencies]
+tonic-build = "0.11"

@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package wgrpcd;
+option go_package = "github.com/joncooperworks/wgrpcd";
+
+service WireguardRPC {
+    rpc ChangeListenPort(ChangeListenPortRequest) returns (ChangeListenPortResponse) {}
+    rpc CreatePeer(CreatePeerRequest) returns (CreatePeerResponse) {}
+    rpc RekeyPeer(RekeyPeerRequest) returns (RekeyPeerResponse) {}
+    rpc RemovePeer(RemovePeerRequest) returns (RemovePeerResponse) {}
+    rpc ListPeers(ListPeersRequest) returns (ListPeersResponse) {}
+    rpc Devices(DevicesRequest) returns (DevicesResponse) {}
+    rpc Import(ImportRequest) returns (ImportResponse) {}
+    rpc UpdateFirewall(FirewallUpdateRequest) returns (FirewallUpdateResponse) {}
+}
+
+message FirewallUpdateRequest {
+    string action = 1;
+    string src = 2;
+    string dst = 3;
+}
+
+message FirewallUpdateResponse {
+    bool updated = 1;
+}
+
+message ChangeListenPortRequest {
+    int32 listenPort = 1;
+    string deviceName = 2;
+}
+
+message ChangeListenPortResponse {
+    int32 newListenPort = 1;
+}
+
+message CreatePeerRequest {
+    repeated string allowedIPs = 1;
+    string deviceName = 2;
+}
+
+message CreatePeerResponse {
+    string privateKey = 1;
+    string publicKey = 2;
+    repeated string allowedIPs = 3;
+    string serverPublicKey = 4;
+}
+
+message RekeyPeerRequest {
+    string publicKey = 1;
+    repeated string allowedIPs = 2;
+    string deviceName = 3;
+}
+
+message RekeyPeerResponse {
+    string privateKey = 1;
+    string publicKey = 2;
+    repeated string allowedIPs = 3;
+    string serverPublicKey = 4;
+}
+
+message RemovePeerRequest {
+    string publicKey = 1;
+    string deviceName = 2;
+}
+
+message RemovePeerResponse {
+    bool removed = 1;
+}
+
+message ListPeersRequest {
+    string deviceName = 1;
+}
+
+message ListPeersResponse {
+    repeated Peer peers = 1;
+}
+
+message Peer {
+    string publicKey = 1;
+    repeated string allowedIPs = 2;
+    int64 receivedBytes = 3;
+    int64 transmittedBytes = 4;
+    uint64 lastSeen = 5;
+}
+
+message DevicesRequest {}
+
+message DevicesResponse {
+    repeated string devices = 1;
+}
+
+message ImportedPeer {
+    string publicKey = 1;
+    repeated string allowedIPs = 2;
+}
+
+message ImportRequest {
+    repeated ImportedPeer peers = 1;
+    string deviceName = 2;
+}
+
+message ImportResponse {}
