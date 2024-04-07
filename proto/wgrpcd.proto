@@ -17,7 +17,7 @@ service WireguardRPC {
 message FirewallUpdateRequest {
     string action = 1;
     string src = 2;
-    string dst = 3;
+    repeated string dsts = 3;
 }
 
 message FirewallUpdateResponse {

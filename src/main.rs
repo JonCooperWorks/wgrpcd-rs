@@ -11,12 +11,14 @@ use tokio::sync::mpsc;
 use wireguard_keys::Pubkey;
 
 use service::{ServerConfig, WireguardService};
+use crate::firewall::Firewall;
 
-use crate::service::WireguardCommand;
+use crate::service::{FirewallCommand, WireguardCommand};
 use crate::vpn::VPN;
 
 mod service;
 mod vpn;
+mod firewall;
 
 // TODO: read this from a CLI arg
 const CAPACITY: usize = 1000;
@@ -47,7 +49,7 @@ struct Args {
     #[arg(default_value = "wg0")]
     wireguard_device: String,
 
-    #[arg(default_value = "wg.pub")]
+    #[arg(default_value = "wg.key")]
     wireguard_public_key: String,
 }
 
@@ -97,6 +99,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let wireguard_public_key = BASE64_STANDARD.decode(&wireguard_public_key)?;
 
     let (wg_tx, mut wg_rx) = mpsc::channel::<WireguardCommand>(CAPACITY);
+    let (fw_tx, mut fw_rx) = mpsc::channel::<FirewallCommand>(CAPACITY);
 
     let config = ServerConfig {
         client_ca,
@@ -104,19 +107,30 @@ async fn main() -> Result<(), anyhow::Error> {
         tls_key,
         wireguard_device: args.wireguard_device.clone(),
         wg_tx,
+        fw_tx,
     };
-
-    let vpn = VPN::new(
-        args.wireguard_device,
-        Pubkey::new(wireguard_public_key.try_into().unwrap()),
-    );
 
     // We don't want concurrent tokio tasks updating Wireguard at the same time.
     // Instead, we send commands as they come in and process them in a dedicated thread.
     // Use channels instead of mutexes to eliminate the risk of deadlock, improve performance
     // and avoid returning unnecessary errors to clients.
+    let vpn = VPN::new(
+        args.wireguard_device.clone(),
+        Pubkey::new(wireguard_public_key.try_into().unwrap()),
+    );
     thread::spawn(move || {
         vpn.wait_for_commands_blocking(&mut wg_rx);
+    });
+
+    // Just like Wireguard, we don't want to update the firewall concurrently, so we do it with
+    // single threaded ownership.
+    let firewall = Firewall::new(
+        args.wireguard_device,
+        "wgprcd".to_string(),
+        "wgprcd".to_string(),
+    );
+    thread::spawn(move || {
+        firewall.wait_for_commands_blocking(&mut fw_rx);
     });
 
     log::info!("Listening on {}", addr);

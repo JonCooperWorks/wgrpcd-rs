@@ -19,17 +19,24 @@ pub enum WireguardCommand {
     ImportPeers(ImportRequest, oneshot::Sender<Result<ImportResponse, Status>>),
 }
 
+pub enum FirewallCommand {
+    UpdateFirewall(FirewallUpdateRequest, oneshot::Sender<Result<FirewallUpdateResponse, Status>>)
+}
+
+
 pub struct ServerConfig {
     pub client_ca: Vec<u8>,
     pub tls_certificate: Vec<u8>,
     pub tls_key: Vec<u8>,
     pub wireguard_device: String,
-    pub(crate) wg_tx: mpsc::Sender<WireguardCommand>,
+    pub wg_tx: mpsc::Sender<WireguardCommand>,
+    pub fw_tx: mpsc::Sender<FirewallCommand>,
 }
 
 pub struct WireguardService {
     wireguard_device: String,
     wireguard_commands: mpsc::Sender<WireguardCommand>,
+    firewall_commands: mpsc::Sender<FirewallCommand>,
 }
 
 
@@ -38,6 +45,7 @@ impl WireguardService {
         let wireguard_service = Self {
             wireguard_device: config.wireguard_device,
             wireguard_commands: config.wg_tx,
+            firewall_commands: config.fw_tx,
         };
 
         let server_identity = Identity::from_pem(&config.tls_certificate, &config.tls_key);
@@ -79,10 +87,7 @@ impl WireguardRpc for WireguardService {
                 log::info!("Created peer {} with public key allowed to connect from {}", response.public_key, response.allowed_i_ps.join(", "));
                 Ok(Response::new(response))
             }
-            Ok(Err(e)) => {
-                log::error!("Error creating peer: {}", e);
-                Err(e)
-            }
+            Ok(Err(e)) => Err(e),
             Err(e) => {
                 log::error!("Error spawning background thread while creating peer with allowed IPs: {}: {}", ips, e);
                 Err(Status::internal(format!("Error creating peer with allowed IPs: {}", ips)))
@@ -107,10 +112,7 @@ impl WireguardRpc for WireguardService {
                 log::info!("Rekeyed peer {} with new public key: {}", old_public_key, response.public_key);
                 Ok(Response::new(response))
             }
-            Ok(Err(e)) => {
-                log::error!("Error while rekeying peer {}: {}", old_public_key, e);
-                Err(e)
-            }
+            Ok(Err(e)) => Err(e),
             Err(e) => {
                 log::error!("Error receiving response from background thread while rekeying peer {}", e);
                 Err(Status::internal(format!("Error rekeying peer: {}", old_public_key)))
@@ -135,10 +137,7 @@ impl WireguardRpc for WireguardService {
                 log::info!("Removed peer successfully");
                 Ok(Response::new(response))
             }
-            Ok(Err(e)) => {
-                log::error!("Error while removing peer: {}", e);
-                Err(e)
-            }
+            Ok(Err(e)) => Err(e),
             Err(e) => {
                 log::error!("Error receiving response from background thread while removing peer: {}", e);
                 Err(Status::internal("Error receiving remove peer response"))
@@ -163,10 +162,7 @@ impl WireguardRpc for WireguardService {
                 let reply = response;
                 Ok(Response::new(reply))
             }
-            Ok(Err(e)) => {
-                log::error!("Error while retrieving peers: {}", e);
-                Err(e)
-            }
+            Ok(Err(e)) => Err(e),
             Err(e) => {
                 log::error!("Error receiving from background thread while retrieving peers {}", e);
                 Err(Status::internal("Error retrieving peers".to_string()))
@@ -196,10 +192,7 @@ impl WireguardRpc for WireguardService {
                 log::info!("Successfully imported peers");
                 Ok(Response::new(response))
             }
-            Ok(Err(e)) => {
-                log::error!("Error while importing peers: {}", e);
-                Err(e)
-            }
+            Ok(Err(e)) => Err(e),
             Err(e) => {
                 log::error!("Error receiving response from Wireguard thread while importing peers: {}", e);
                 Err(Status::internal("Error receiving import peers response"))
@@ -207,8 +200,27 @@ impl WireguardRpc for WireguardService {
         }
     }
 
+    async fn update_firewall(&self, request: Request<FirewallUpdateRequest>) -> Result<Response<FirewallUpdateResponse>, Status> {
+        let (tx, rx) = oneshot::channel();
+        let request = request.into_inner();
 
-    async fn update_firewall(&self, _request: Request<FirewallUpdateRequest>) -> Result<Response<FirewallUpdateResponse>, Status> {
-        todo!("use wireguard p2p routing to configure FWs")
+        self.firewall_commands.send(FirewallCommand::UpdateFirewall(request.clone(), tx))
+            .await
+            .map_err(|e| {
+                log::error!("Error sending message to firewall thread: {}", e);
+                Status::internal("Error sending command to firewall")
+            })?;
+
+        match rx.await {
+            Ok(Ok(response)) => {
+                log::info!("Applied change to firewall: {} {} -> {}", request.action, request.src, request.dsts.join(", "));
+                Ok(Response::new(response))
+            }
+            Ok(Err(e)) => Err(e),
+            Err(e) => {
+                log::error!("Error receiving response from firewall: {}", e);
+                Err(Status::internal("Error receiving response from firewall".to_string()))
+            }
+        }
     }
 }
