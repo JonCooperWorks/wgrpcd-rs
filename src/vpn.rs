@@ -76,7 +76,7 @@ impl VPN {
     }
 
     fn rekey_peer(&self, request: RekeyPeerRequest) -> Result<RekeyPeerResponse, Status> {
-        let old_public_key = request.public_key;
+        let old_public_key = request.public_key.clone();
 
         // Generate private and public keys
         let new_private_key = Privkey::generate();
@@ -84,15 +84,15 @@ impl VPN {
         let allowed_ips = strings_to_ipaddrmask_blocking(&request.allowed_i_ps)?;
 
         let key = Key::from_str(old_public_key.as_str())
-            .map_err(|_e| Status::invalid_argument(format!("Invalid public key: {}", old_public_key)))?;
+            .map_err(|_| Status::invalid_argument(format!("Invalid public key: {}", old_public_key)))?;
 
         key_is_peer(&self.wg, &key)
-            .map_err(|_e| Status::not_found(format!("Key {} not found", key.to_string())))?;
+            .map_err(|_| Status::not_found(format!("Key {} not found", key.to_string())))?;
 
         self.wg.remove_peer(&key)
             .map_err(|e| {
                 log::error!("Error removing peer {}: {}", old_public_key, e);
-                Status::internal(format!("Error removing old public key {}", old_public_key))
+                Status::internal(format!("Error removing old public key {}", request.public_key))
             })?;
 
         let pubkey = Key::decode(new_public_key.to_hex()).expect("There is a bug in the Privkey generation");
@@ -102,7 +102,10 @@ impl VPN {
             allowed_ips,
             ..Default::default()
         })
-            .map_err(|e| Status::internal(format!("Error adding updated key to interface: {}", e)))?;
+            .map_err(|e| {
+                log::error!("Error adding updated key for {} to interface: {}", old_public_key, e);
+                Status::internal(format!("Error updating {}", request.public_key))
+            })?;
 
         let response = RekeyPeerResponse {
             private_key: new_private_key.to_base64(),
@@ -124,7 +127,10 @@ impl VPN {
         }
 
         self.wg.remove_peer(&key)
-            .map_err(|_e| Status::internal("Error removing peer".to_string()))?;
+            .map_err(|e| {
+                log::error!("Error removing peer {}: {}", request.public_key, e);
+                Status::internal("Error removing peer".to_string())
+            })?;
 
         let response = RemovePeerResponse { removed: true };
         Ok(response)
@@ -143,7 +149,10 @@ impl VPN {
                 allowed_ips,
                 ..Default::default()
             })
-                .map_err(|e| Status::internal(format!("Error adding peer: {}", e)))?;
+                .map_err(|e| {
+                    log::error!("Error importing peer {}: {}", peer.public_key, e);
+                    Status::internal(format!("Error adding peer: {}", e))
+                })?;
         }
 
         Ok(ImportResponse {})
@@ -151,7 +160,10 @@ impl VPN {
 
     fn list_peers(&self, _: ListPeersRequest) -> Result<ListPeersResponse, Status> {
         let data = self.wg.read_interface_data()
-            .map_err(|e| Status::internal(format!("Error reading peers: {}", e)))?;
+            .map_err(|e| {
+                log::error!("Error reading Wireguard interface when reading peers: {}", e);
+                Status::internal(format!("Error reading peers: {}", e))
+            })?;
 
         let peers: Vec<wgrpcd::Peer> = data.peers
             .into_values()
@@ -183,7 +195,10 @@ fn strings_to_ipaddrmask_blocking(allowed_ips: &Vec<String>) -> Result<Vec<IpAdd
 
 fn key_is_peer(wireguard: &WGApi, key: &Key) -> Result<bool, Status> {
     let peers = wireguard.read_interface_data()
-        .map_err(|_e| Status::internal("Failed to read wireguard interface".to_string()))?
+        .map_err(|e| {
+            log::error!("Error reading Wireguard interface when determing if key is peer: {}", e);
+            Status::internal("Failed to read wireguard interface".to_string())
+        })?
         .peers;
 
     return Ok(peers.contains_key(key));

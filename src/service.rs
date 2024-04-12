@@ -89,7 +89,7 @@ impl WireguardRpc for WireguardService {
             }
             Ok(Err(e)) => Err(e),
             Err(e) => {
-                log::error!("Error spawning background thread while creating peer with allowed IPs: {}: {}", ips, e);
+                log::error!("Error receiving response from background thread when creating peer: {}", e);
                 Err(Status::internal(format!("Error creating peer with allowed IPs: {}", ips)))
             }
         }
@@ -152,7 +152,7 @@ impl WireguardRpc for WireguardService {
             .send(WireguardCommand::ListPeers(request.into_inner(), tx))
             .await
             .map_err(|e| {
-                log::error!("Error sending comand to Wireguard thread when listing peers: {}", e);
+                log::error!("Error sending command to Wireguard thread when listing peers: {}", e);
                 Status::internal("Error retrieving peers".to_string())
             })?;
 
