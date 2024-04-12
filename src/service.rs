@@ -67,7 +67,7 @@ impl WireguardService {
 impl WireguardRpc for WireguardService {
     async fn change_listen_port(&self, _: Request<ChangeListenPortRequest>) -> Result<Response<ChangeListenPortResponse>, Status> {
         Ok(Response::new(ChangeListenPortResponse {
-            new_listen_port: 443,
+            new_listen_port: 51820,
         }))
     }
 

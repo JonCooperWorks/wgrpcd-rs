@@ -69,6 +69,7 @@ impl VPN {
                 Ok(response)
             }
             Err(e) => {
+                log::error!("Error adding peer for {}: {}", request.allowed_i_ps.join(", "), e);
                 Err(Status::internal("Error adding peer".to_string()))
             }
         };
@@ -90,6 +91,7 @@ impl VPN {
 
         self.wg.remove_peer(&key)
             .map_err(|e| {
+                log::error!("Error removing peer {}: {}", old_public_key, e);
                 Status::internal(format!("Error removing old public key {}", old_public_key))
             })?;
 
