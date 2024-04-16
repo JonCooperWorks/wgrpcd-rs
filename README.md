@@ -6,14 +6,16 @@ It is a Rust rewrite of my existing [wgrpcd](https://github.com/joncooperworks/w
 get better at Rust.
 Don't use this in production, it is a hobby project that has not been audited.
 
-## Features
+## API Operations
++ Create peer and get provisioned config (one operation to minimize the time the private key is in memory)
++ Regenerate peer config and revoke old private key
++ Remove peer and revoke old private key
++ Change wireguard listen port
++ View registered peers
 
-- **Remote Management**: Control Wireguard configurations remotely via a gRPC interface.
-- **Security**: Ensures secure communication using mTLS for connections between the client and the server.
-- **Configurable**: Easy to configure through command-line arguments.
-
-## Prerequisites
-Before you start, make sure Rust and Cargo are installed on your system.
+## Running without root
+You can run this program on Linux without root by setting the `CAP_NET_ADMIN` and `CAP_NET_BIND_SERVICE` capabilities on the `wgrpcd` binary.
+Set them using `sudo setcap CAP_NET_BIND_SERVICE,CAP_NET_ADMIN+eip wgrpcd`
 
 ## Configuration
 
@@ -30,9 +32,16 @@ Before you start, make sure Rust and Cargo are installed on your system.
 --wireguard_public_key Path to the Wireguard public key file [default: wg.key]
 ```
 
+## Authentication
+`wgrpcd` uses mTLS to limit access to the gRPC API.
+Unencrypted connections will be rejected.
+Client certificates must be signed by the Certificate Authority passed with the `-ca-cert` flag.
+
 ## Building and Running
 The [build.rs](build.rs) script handles compiling the protobuf definitions located at [`proto/wgrpcd.proto`](./proto/wgrpcd.proto) and generating the necessary Rust code for gRPC communication.
-
+Simply ```cargo build``` and everything will be handled.
+### Prerequisites
+Before you start, make sure Rust and Cargo are installed on your system.
 
 ## Deployment
 If the `CLOUD_INIT` environment variable is set, the build script will automatically generate a wgrpcd-cloud-init-deploy.yml file. 
