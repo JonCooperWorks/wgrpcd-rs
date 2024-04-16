@@ -47,6 +47,7 @@ To generate a cloud-init configuration during the build, set the following envir
 - `CA_CITY`: City for the CA certificate.
 - `CA_COMPANY`: Company for the CA certificate.
 - `WGRPCD_CN`: Common Name for the `wgrpcd` server TLS certificate.
-- `SSH_KEY_FILENAME`: Path to the SSH key file used to administer and deploy software to the `wgrpcd` host.
+- `ADMIN_SSH_KEY`: Path to the SSH key file used to administer the `wgrpcd` host.
+- `DEPLOY_SSH_KEY`: Path to the SSH key file used to deploy `wgrpcd` instances to the `wgrpcd` host.
 
 This will output the cloud-init to a file called `wgrpcd-cloud-init-deploy.yml` in your working directory.

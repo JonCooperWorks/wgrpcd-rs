@@ -5,14 +5,14 @@ use serde_json::json;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum EnvError {
+pub enum BuildError {
     #[error("environment variable not set: {0}")]
-    NotSet(String),
+    EnvironmentVariableNotSet(String),
 }
 
-fn read_env(key: &str) -> Result<String, EnvError> {
+fn read_env(key: &str) -> Result<String, BuildError> {
     return env::var(key)
-        .map_err(|_| EnvError::NotSet(key.to_string()));
+        .map_err(|_| BuildError::EnvironmentVariableNotSet(key.to_string()));
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,12 +27,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let ca_company = read_env("CA_COMPANY")?;
             let wgrpcd_cn = read_env("WGRPCD_CN")?;
 
-            let ssh_key_filename = read_env("SSH_KEY_FILENAME")?;
-            let ssh_key = fs::read_to_string(ssh_key_filename)?;
+            let admin_ssh_key_filename = read_env("ADMIN_SSH_KEY")?;
+            let deploy_ssh_key_filename = read_env("DEPLOY_SSH_KEY")?;
+            let admin_ssh_key = fs::read_to_string(admin_ssh_key_filename)?;
+            let deploy_ssh_key = fs::read_to_string(deploy_ssh_key_filename)?;
 
             // Prepare the template data
             let data = json!({
-                "ssh_key": ssh_key,
+                "admin_ssh_key": admin_ssh_key,
+                "deploy_ssh_key": deploy_ssh_key,
                 "ca_cn": ca_cn,
                 "ca_country": ca_country,
                 "ca_state": ca_state,
