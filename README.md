@@ -49,5 +49,4 @@ To generate a cloud-init configuration during the build, set the following envir
 - `WGRPCD_CN`: Common Name for the `wgrpcd` server TLS certificate.
 - `SSH_KEY_FILENAME`: Path to the SSH key file used to administer and deploy software to the `wgrpcd` host.
 
-This will output a file called `wgrpcd-cloud-init-deploy.yml` in your working directory.
-Use this file 
+This will output the cloud-init to a file called `wgrpcd-cloud-init-deploy.yml` in your working directory.
