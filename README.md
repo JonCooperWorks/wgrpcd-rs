@@ -35,7 +35,7 @@ Set them using `sudo setcap CAP_NET_BIND_SERVICE,CAP_NET_ADMIN+eip wgrpcd`
 ## Authentication
 `wgrpcd` uses mTLS to limit access to the gRPC API.
 Unencrypted connections will be rejected.
-Client certificates must be signed by the Certificate Authority passed with the `-ca-cert` flag.
+Client certificates must be signed by the Certificate Authority passed with the `--ca_cert` flag.
 
 ## Building and Running
 The [build.rs](build.rs) script handles compiling the protobuf definitions located at [`proto/wgrpcd.proto`](./proto/wgrpcd.proto) and generating the necessary Rust code for gRPC communication.
