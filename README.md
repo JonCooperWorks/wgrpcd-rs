@@ -44,8 +44,8 @@ Simply ```cargo build``` and everything will be handled.
 Before you start, make sure Rust and Cargo are installed on your system.
 
 ## Deployment
-If the `CLOUD_INIT` environment variable is set, the build script will automatically generate a wgrpcd-cloud-init-deploy.yml file. 
-This file can be used to initialize a virtual machine in the cloud, setting up wgrpcd with all necessary configurations.
+If the `CLOUD_INIT` environment variable is set, the build script will automatically generate a cloud-init script `wgrpcd-cloud-init-deploy.yml` in your working directory.
+This file can be used to initialize a virtual machine in the cloud, setting up `wgrpcd` with TLS, a CA for signing client certificates and a Wireguard VPN with a fresh pair of keys.
 
 ### Environment Variables for Cloud-Init
 To generate a cloud-init configuration during the build, set the following environment variables:
@@ -59,4 +59,5 @@ To generate a cloud-init configuration during the build, set the following envir
 - `ADMIN_SSH_KEY`: Path to the SSH key file used to administer the `wgrpcd` host.
 - `DEPLOY_SSH_KEY`: Path to the SSH key file used to deploy `wgrpcd` instances to the `wgrpcd` host.
 
-This will output the cloud-init to a file called `wgrpcd-cloud-init-deploy.yml` in your working directory.
+# Credit Where Credit is Due
+""WireGuard" and the "WireGuard" logo are registered trademarks of Jason A. Donenfeld."
