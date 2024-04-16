@@ -1,0 +1,101 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - wireguard-tools
+  - curl
+  - openssl
+  - iptables
+
+users:
+  - name: admin
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh-authorized-keys:
+      - {{ ssh_key }}
+
+  - name: wgrpcd
+    shell: /usr/sbin/nologin
+    ssh-authorized-keys:
+      - {{ ssh_key }}
+    system: true
+
+write_files:
+  - path: /home/admin/.ssh/authorized_keys
+    content: |
+      {{ ssh_key }}
+    owner: admin:admin
+    permissions: '0600'
+
+  - path: /home/wgrpcd/.ssh/authorized_keys
+    content: |
+      {{ ssh_key }}
+    owner: wgrpcd:wgrpcd
+    permissions: '0600'
+
+  - path: /etc/systemd/system/wgrpcd.service
+    content: |
+      [Unit]
+      Description=wgrpcd Service
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=wgrpcd
+      WorkingDirectory=/home/wgrpcd
+      ExecStart=/home/wgrpcd/wgrpcd --listen_address [::]:443 --ca_cert /home/wgrpcd/cacert.pem --tls_key /home/wgrpcd/serverkey.pem --tls_cert /home/wgrpcd/servercert.pem --wireguard_device wg0 --wireguard_public_key /home/wgrpcd/wg.key
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # Generate WireGuard keys
+  - wg genkey | tee /etc/wireguard/privatekey | wg pubkey > /etc/wireguard/publickey
+  - chmod 600 /etc/wireguard/privatekey /etc/wireguard/publickey
+
+  # Setup WireGuard interface wg0
+  - echo "[Interface]
+    Address = 10.10.0.1/24
+    ListenPort = 51820
+    PrivateKey = $(cat /etc/wireguard/privatekey)
+    SaveConfig = true" > /etc/wireguard/wg0.conf
+  - wg-quick up wg0
+  - systemctl enable wg-quick@wg0
+
+  # Modify SSH configuration to prohibit root password login
+  - sed -i 's/^PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
+  - systemctl restart sshd
+
+  # Download and prepare wgrpcd binary
+  - curl -L -o /home/wgrpcd/wgrpcd https://github.com/JonCooperWorks/wgrpcd-rs/releases/download/0.0.1/wgrpcd
+  - chmod +x /home/wgrpcd/wgrpcd
+  - setcap 'cap_net_bind_service,cap_net_admin+eip' /home/wgrpcd/wgrpcd
+  - chown wgrpcd:wgrpcd /home/wgrpcd/wgrpcd
+
+  # Create TLS CA, server key, and server cert with 4096-bit keys
+  - openssl genrsa -out /home/wgrpcd/cakey.pem 4096
+  - openssl req -x509 -new -nodes -key /home/wgrpcd/cakey.pem -sha256 -days 1024 -out /home/wgrpcd/cacert.pem -subj "/C={{ ca_country }}/ST={{ ca_state }}/L={{ ca_city }}/O={{ ca_company }}/CN={{ ca_cn }}"
+  - openssl genrsa -out /home/wgrpcd/serverkey.pem 4096
+  - openssl req -new -key /home/wgrpcd/serverkey.pem -out /home/wgrpcd/server.csr -subj "/C={{ server_country }}/ST={{ server_state }}/L={{ server_city }}/O={{ server_company }}/CN={{ server_cn }}"
+  - openssl x509 -req -in /home/wgrpcd/server.csr -CA /home/wgrpcd/cacert.pem -CAkey /home/wgrpcd/cakey.pem -CAcreateserial -out /home/wgrpcd/servercert.pem -days 500 -sha256
+  - rm /home/wgrpcd/server.csr
+
+  # Copy WireGuard public key to wgrpcd home
+  - cp /etc/wireguard/publickey /home/wgrpcd/wg.key
+
+  # Block Metadata IP over wg0
+  - iptables -A OUTPUT -o wg0 -d 169.254.169.254 -j DROP
+
+  # Adjust ownership and permissions
+  - chown -R wgrpcd:wgrpcd /home/wgrpcd
+  - chmod 400 /home/wgrpcd/*.pem
+  - chmod 400 /home/wgrpcd/wg.key
+
+  # Enable and start wgrpcd service
+  - systemctl daemon-reload
+  - systemctl enable wgrpcd.service
+  - systemctl start wgrpcd.service
+
+final_message: "wgrpcd started in $UPTIME seconds"
