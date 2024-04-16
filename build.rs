@@ -32,8 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let admin_ssh_key = fs::read_to_string(admin_ssh_key_filename)?;
             let deploy_ssh_key = fs::read_to_string(deploy_ssh_key_filename)?;
 
-            // Prepare the template data
-            let data = json!({
+            let context = json!({
                 "admin_ssh_key": admin_ssh_key,
                 "deploy_ssh_key": deploy_ssh_key,
                 "ca_cn": ca_cn,
@@ -50,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut handlebars = Handlebars::new();
             handlebars.register_template_file("cloud-init", "init-scripts/cloud-init-wgrpcd.yaml")?;
 
-            let cloud_init = handlebars.render("cloud-init", &data)?;
+            let cloud_init = handlebars.render("cloud-init", &context)?;
             fs::write("wgrpcd-cloud-init-deploy.yml", cloud_init)?;
             Ok(())
         }
