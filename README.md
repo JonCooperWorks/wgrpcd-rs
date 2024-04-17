@@ -10,8 +10,10 @@ Don't use this in production, it is a hobby project that has not been audited.
 + Create peer and get provisioned config (one operation to minimize the time the private key is in memory)
 + Regenerate peer config and revoke old private key
 + Remove peer and revoke old private key
-+ Change wireguard listen port
 + View registered peers
+
+### Coming Soon
++ Update firewall rules
 
 ## Running without root
 You can run this program on Linux without root by setting the `CAP_NET_ADMIN` and `CAP_NET_BIND_SERVICE` capabilities on the `wgrpcd` binary.
