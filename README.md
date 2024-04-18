@@ -14,6 +14,7 @@ Don't use this in production, it is a hobby project that has not been audited.
 
 ### Coming Soon
 + Update firewall rules
++ OAuth2 M2M Authentication
 
 ## Running without root
 You can run this program on Linux without root by setting the `CAP_NET_ADMIN` and `CAP_NET_BIND_SERVICE` capabilities on the `wgrpcd` binary.
